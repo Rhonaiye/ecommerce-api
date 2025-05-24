@@ -105,6 +105,7 @@ export const getAllProducts = async (req, res) => {
       category: product.category,
       
     }));
+    
 
     res.json(formattedProducts);
   } catch (error) {
