@@ -3,12 +3,12 @@ import mongoose from 'mongoose';
 const productSchema = new mongoose.Schema({
   name: String,
   description: String,
+  image_url: mongoose.Schema.Types.String,
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
   },
   price: Number,
-  image: Buffer,
   createdAt: { type: Date, default: Date.now },
 });
 

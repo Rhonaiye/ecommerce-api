@@ -1,5 +1,6 @@
 import { Product } from '../models/product.model.js';
 import { Category } from '../models/category.model.js';
+import { uploadFileToR2 } from '../utils/media.js';
 
 const validateProductInput = ({ name, description, price }) => {
   const errors = {};
@@ -23,19 +24,17 @@ const validateProductInput = ({ name, description, price }) => {
 };
 
 export const createProduct = async (req, res) => {
-
-
   if (!req.file) {
     return res.status(400).json({ message: 'Image is required' });
   }
 
   const { name, description, price, category } = req.body;
-  
+
   if (!category) {
     return res.status(400).json({ message: 'Category is required' });
   }
 
-  // Validate if category exists
+  // Validate category existence
   try {
     const existingCategory = await Category.findById(category);
     if (!existingCategory) {
@@ -46,16 +45,24 @@ export const createProduct = async (req, res) => {
   }
 
   const { isValid, errors } = validateProductInput({ name, description, price });
-
   if (!isValid) return res.status(400).json({ errors });
 
-  const image = req.file.buffer;
-
   try {
-    const product = await Product.create({ name, description, price, image, category });
+    // Upload image to R2
+    const uploadResult = await uploadFileToR2(req.file.buffer, req.file.originalname);
+
+    // Save product with image URL
+    const product = await Product.create({
+      name,
+      description,
+      price,
+      image_url: uploadResult.url, // Assuming your Product model has an `imageUrl` field
+      category,
+    });
+
     res.status(201).json(product);
   } catch (error) {
-    console.error('DB Error:', error);
+    console.error('Product creation error:', error);
     res.status(500).json({ message: 'Failed to create product', error: error.message });
   }
 };
@@ -91,8 +98,16 @@ export const updateProduct = async (req, res) => {
 
 export const getAllProducts = async (req, res) => {
   try {
+    // Optional: Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     const products = await Product.find()
-      .populate('category')
+      .populate('category', 'name _id') // Only fetch needed fields
+      .skip(skip)
+      .limit(limit)
+      .lean() // Return plain JS objects
       .exec();
 
     const formattedProducts = products.map(product => ({
@@ -100,12 +115,13 @@ export const getAllProducts = async (req, res) => {
       name: product.name,
       description: product.description,
       price: product.price,
-      image: product.image,
+      image_url: product.image_url,
       createdAt: product.createdAt,
-      category: product.category,
-      
+      category: product.category ? {
+        _id: product.category._id,
+        name: product.category.name
+      } : null,
     }));
-    
 
     res.json(formattedProducts);
   } catch (error) {
