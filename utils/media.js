@@ -43,3 +43,43 @@ export async function uploadFileToR2(buffer, fileName) {
   }
 }
 
+const exctractKeyFromUrl = async (url = '')=>{
+   const baseUrl = 'https://rentailz.com.ng/'
+
+   if(url.startsWith(baseUrl)){
+     return url.slice(baseUrl.length)
+   }
+
+   throw new Error('Invalid url format')
+}
+
+
+
+export async function editImageOnR2(image_url, buffer, fileName) {
+  try {
+
+    const oldKey = await exctractKeyFromUrl(image_url)
+    // Delete the old image
+    await s3.deleteObject({
+      Bucket: BUCKET_NAME,
+      Key: oldKey,
+    }).promise();
+
+    // Upload the new image
+    const key = `uploads/${Date.now()}-${fileName}`;
+    const result = await s3.upload({
+      Bucket: BUCKET_NAME,
+      Key: key,
+      Body: buffer,
+      ContentType: guessMimeType(fileName),
+    }).promise();
+
+    return {
+      key,
+      url: `https://rentailz.com.ng/${key}`,
+    };
+  } catch (error) {
+    console.error('R2 edit image error:', error);
+    throw error;
+  }
+}
