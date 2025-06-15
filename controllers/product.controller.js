@@ -1,6 +1,6 @@
 import { Product } from '../models/product.model.js';
 import { Category } from '../models/category.model.js';
-import { uploadFileToR2 } from '../utils/media.js';
+import { uploadFileToR2, editImageOnR2 } from '../utils/media.js';
 
 const validateProductInput = ({ name, description, price }) => {
   const errors = {};
@@ -87,12 +87,15 @@ export const updateProduct = async (req, res) => {
     product.name = name ?? product.name;
     product.description = description ?? product.description;
     product.price = price ?? product.price;
-    if (req.file?.buffer) product.image = req.file.buffer;
+    if (req.file?.buffer){
+      const image = await editImageOnR2(product.image_url, req.file.buffer, req.file.originalname)
+      product.image_url = image.url
+    }
 
     await product.save();
     res.json(product);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update product', error: error.message });
+    return res.status(500).json({ message: 'Failed to update product', error: error.message });
   }
 };
 
